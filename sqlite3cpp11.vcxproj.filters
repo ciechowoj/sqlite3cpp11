@@ -15,19 +15,22 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="sqlite3.c">
+    <ClCompile Include="sqlite3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="_sqlite3.cpp">
+    <ClCompile Include="sqlite3.c.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="sqlite3.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="sqlite3.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="sqlite3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="NOTES.md" />
   </ItemGroup>
 </Project>

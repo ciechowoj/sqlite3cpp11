@@ -5,6 +5,11 @@ VisualStudioVersion = 12.0.30501.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sqlite3cpp11", "sqlite3cpp11.vcxproj", "{FB605035-EFCA-4CA3-9B70-53FB336C5510}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tests", "tests\tests.vcxproj", "{BC142389-61EF-41D6-A494-7E36E3BB680F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{FB605035-EFCA-4CA3-9B70-53FB336C5510} = {FB605035-EFCA-4CA3-9B70-53FB336C5510}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -15,6 +20,10 @@ Global
 		{FB605035-EFCA-4CA3-9B70-53FB336C5510}.Debug|Win32.Build.0 = Debug|Win32
 		{FB605035-EFCA-4CA3-9B70-53FB336C5510}.Release|Win32.ActiveCfg = Release|Win32
 		{FB605035-EFCA-4CA3-9B70-53FB336C5510}.Release|Win32.Build.0 = Release|Win32
+		{BC142389-61EF-41D6-A494-7E36E3BB680F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BC142389-61EF-41D6-A494-7E36E3BB680F}.Debug|Win32.Build.0 = Debug|Win32
+		{BC142389-61EF-41D6-A494-7E36E3BB680F}.Release|Win32.ActiveCfg = Release|Win32
+		{BC142389-61EF-41D6-A494-7E36E3BB680F}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

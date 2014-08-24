@@ -28,6 +28,36 @@ enum result_t {
 	done
 };
 
+extern const unsigned open_nomutex;
+extern const unsigned open_fullmutex;
+extern const unsigned open_sharedcache;
+extern const unsigned open_privatecache;
+extern const unsigned open_uri;
+extern const unsigned open_readonly;
+extern const unsigned open_readwrite;
+extern const unsigned open_create;
+
+database open(const char* filename, unsigned flags = open_readwrite | open_create);
+void close(database& database);
+
+statement prepare(database& database, std::string::const_iterator begin, std::string::const_iterator end, std::string::const_iterator& tail);
+statement prepare(database& database, const char* sql, const char*& tail);
+statement prepare(database& database, const char* sql, std::size_t bytes, const char*& tail);
+
+template <class F> inline void prepare(database& database, const std::string& sql, F functor) {
+	std::string::const_iterator itr = sql.begin();
+	while (itr != sql.end()) {
+		functor(prepare(database, itr, sql.end(), itr));
+	}
+}
+
+result_t step(statement& statement);
+void finalize(statement& statement);
+
+
+
+
+
 void clear_bindings(statement& statement);
 void bind(statement& statement, std::size_t index, double value);
 void bind(statement& statement, std::size_t index, long long value);
@@ -43,8 +73,6 @@ std::size_t bind_parameter_index(statement& statement, const char* name);
 std::size_t bind_parameter_index(statement& statement, const std::string& name);
 std::string bind_parameter_name_str(statement& statement, std::size_t index);
 const char* bind_parameter_name_cstr(statement& statement, std::size_t index);
-
-void close(database& database);
 
 double column_double(statement& statement, std::size_t index);
 signed char column_byte(statement& statement, std::size_t index);
@@ -83,26 +111,13 @@ const char* column_table_name_cstr(statement& statement, std::size_t index);
 std::string column_database_name_str(statement& statement, std::size_t index);
 const char* column_database_name_cstr(statement& statement, std::size_t index);
 
-statement prepare(database& database, std::string::const_iterator begin, std::string::const_iterator end, std::string::const_iterator& tail);
-statement prepare(database& database, const char* sql, const char*& tail);
-statement prepare(database& database, const char* sql, std::size_t bytes, const char*& tail);
-result_t step(statement& statement);
-void finalize(statement& statement);
-
-
-
-void exec(database& database, const char* sql);
-void exec(database& database, const char* sql, std::function<bool(int, const char* const*, const char* const*)> callback);
-
-
-
 class database {
 public:
 	database();
 	database(database&& that);
 	~database();
 	database& operator=(database&& that);
-	explicit operator bool();
+	explicit operator bool() const;
 private:
 	void* _impl;
 	friend struct detail::impl;
@@ -116,7 +131,7 @@ public:
 	statement(statement&& that);
 	~statement();
 	statement& operator=(statement&& that);
-	explicit operator bool();
+	explicit operator bool() const;
 private:
 	void* _impl;
 	friend struct detail::impl;
@@ -124,11 +139,17 @@ private:
 	statement& operator=(const statement&);
 };
 
-template <class T> inline std::pair<bool, T> exec(database& database, const char* sql, std::size_t bytes) {
+bool exec(database& database, const char* sql, std::size_t size, std::function<bool(std::size_t, const char* const*, const char* const*)> functor);
+bool exec(database& database, const char* sql, std::function<bool(std::size_t, const char* const*, const char* const*)> functor);
+bool exec(database& database, const std::string& sql, std::function<bool(std::size_t, const char* const*, const char* const*)> functor);
+
+
+
+template <class T> inline T exec(database& database, const char* sql, std::size_t bytes) {
 	static_assert("Requested type T is invalid.", false);
 }
 
-template <> inline std::pair<bool, long long> exec<long long>(database& database, const char* sql, std::size_t bytes) {
+/*template <> inline std::pair<bool, long long> exec<long long>(database& database, const char* sql, std::size_t bytes) {
 	const char* itr = sql;
 	const char* end = sql + bytes;
 	sqlite3cpp::statement statement;
@@ -148,9 +169,9 @@ template <> inline std::pair<bool, long long> exec<long long>(database& database
 	}
 
 	return std::make_pair(initialized, func_result);
-}
+}*/
 
-template <> inline std::pair<bool, unsigned long long> exec<unsigned long long>(database& database, const char* sql, std::size_t bytes) {
+/*template <> inline std::pair<bool, unsigned long long> exec<unsigned long long>(database& database, const char* sql, std::size_t bytes) {
 	const char* itr = sql;
 	const char* end = sql + bytes;
 	sqlite3cpp::statement statement;
@@ -170,10 +191,15 @@ template <> inline std::pair<bool, unsigned long long> exec<unsigned long long>(
 	}
 
 	return std::make_pair(initialized, func_result);
+}*/
+
+template <class T> inline T exec(database& database, const char* sql) {
+	return exec<T>(database, sql, std::strlen(sql));
 }
 
-
-
+template <class T> inline T exec(database& database, const std::string& sql) {
+	return exec<T>(database, sql.c_str(), sql.size());
+}
 
 class sqlite_error : public std::runtime_error {
 protected:
