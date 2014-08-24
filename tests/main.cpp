@@ -46,11 +46,14 @@ TEST_F(sqlite3cpp_test, exec_should_execute_statement) {
 		return false;
 	};
 
-	ASSERT_EQ(false, sqlite3::exec(database, "SELECT value FROM \"table\" WHERE key = 'children';", functor));
-	ASSERT_EQ(1, num_cols_vec.size());
+	ASSERT_EQ(false, sqlite3::exec(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor));
+	ASSERT_EQ(2, num_cols_vec.size());
 	EXPECT_EQ(1, num_cols_vec[0]);
-	EXPECT_EQ(std::to_string(children), values_vec[0]);
+	EXPECT_EQ(1, num_cols_vec[1]);
+	EXPECT_TRUE(std::to_string(1) == values_vec[0] || std::to_string(2) == values_vec[0]);
+	EXPECT_TRUE(std::to_string(1) == values_vec[1] || std::to_string(2) == values_vec[1]);
 	EXPECT_EQ("value", names_vec[0]);
+	EXPECT_EQ("value", names_vec[1]);
 }
 
 TEST_F(sqlite3cpp_test, exec_should_execute_statement_and_abort) {
@@ -65,12 +68,38 @@ TEST_F(sqlite3cpp_test, exec_should_execute_statement_and_abort) {
 		return true;
 	};
 
-	ASSERT_EQ(true, sqlite3::exec(database, "SELECT value FROM \"table\" WHERE key = 'children';", functor));
+	ASSERT_EQ(true, sqlite3::exec(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor));
 	ASSERT_EQ(1, num_cols_vec.size());
 	EXPECT_EQ(1, num_cols_vec[0]);
-	EXPECT_EQ(std::to_string(children), values_vec[0]);
+	EXPECT_TRUE(std::to_string(1) == values_vec[0] || std::to_string(2) == values_vec[0]);
 	EXPECT_EQ("value", names_vec[0]);
 }
+
+TEST_F(sqlite3cpp_test, exec_should_throw_exception) {
+	std::vector<std::size_t> num_cols_vec;
+	std::vector<std::string> values_vec;
+	std::vector<std::string> names_vec;
+
+	auto functor = [&](std::size_t num_cols, const char* const* values, const char* const* names) -> bool {
+		throw std::string("today is the day");
+		return true;
+	};
+
+	ASSERT_THROW(sqlite3::exec(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor), std::string);
+}
+
+TEST_F(sqlite3cpp_test, tuple_exec_should_execute_statement) {
+
+
+
+	auto a = sqlite3::exec<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" WHERE first = 1;");
+
+
+
+}
+
+
+
 
 
 int main(int argc, char **argv) {

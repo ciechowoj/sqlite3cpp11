@@ -1,5 +1,6 @@
 #include <stdexcept>
 #include <string>
+#include <vector>
 #include <functional>
 
 namespace sqlite3cpp {
@@ -44,13 +45,6 @@ statement prepare(database& database, std::string::const_iterator begin, std::st
 statement prepare(database& database, const char* sql, const char*& tail);
 statement prepare(database& database, const char* sql, std::size_t bytes, const char*& tail);
 
-template <class F> inline void prepare(database& database, const std::string& sql, F functor) {
-	std::string::const_iterator itr = sql.begin();
-	while (itr != sql.end()) {
-		functor(prepare(database, itr, sql.end(), itr));
-	}
-}
-
 result_t step(statement& statement);
 void finalize(statement& statement);
 
@@ -74,28 +68,28 @@ std::size_t bind_parameter_index(statement& statement, const std::string& name);
 std::string bind_parameter_name_str(statement& statement, std::size_t index);
 const char* bind_parameter_name_cstr(statement& statement, std::size_t index);
 
-double column_double(statement& statement, std::size_t index);
-signed char column_byte(statement& statement, std::size_t index);
-unsigned char column_ubyte(statement& statement, std::size_t index);
-short column_short(statement& statement, std::size_t index);
-unsigned short column_ushort(statement& statement, std::size_t index);
-int column_int(statement& statement, std::size_t index);
-unsigned int column_uint(statement& statement, std::size_t index);
-long column_long(statement& statement, std::size_t index);
-unsigned long column_ulong(statement& statement, std::size_t index);
-long long column_llong(statement& statement, std::size_t index);
-unsigned long long column_ullong(statement& statement, std::size_t index);
-std::string column_str(statement& statement, std::size_t index);
-const char* column_cstr(statement& statement, std::size_t index);
-std::size_t column_bytes(statement& statement, std::size_t index);
 
 template <class T> inline T column(statement& statement, std::size_t index) {
 	static_assert("Requested type T is invalid.", false);
 }
 
-template <> inline double column<double>(statement& statement, std::size_t index) {
-	return column_double(statement, index);
-}
+template <> float column<float>(statement& statement, std::size_t index);
+template <> double column<double>(statement& statement, std::size_t index);
+template <> signed char column<signed char>(statement& statement, std::size_t index);
+template <> unsigned char column<unsigned char>(statement& statement, std::size_t index);
+template <> short column<short>(statement& statement, std::size_t index);
+template <> unsigned short column<unsigned short>(statement& statement, std::size_t index);
+template <> int column<int>(statement& statement, std::size_t index);
+template <> unsigned int column<unsigned int>(statement& statement, std::size_t index);
+template <> long column<long>(statement& statement, std::size_t index);
+template <> unsigned long column<unsigned long>(statement& statement, std::size_t index);
+template <> long long column<long long>(statement& statement, std::size_t index);
+template <> unsigned long long column<unsigned long long>(statement& statement, std::size_t index);
+template <> std::string column<std::string>(statement& statement, std::size_t index);
+
+std::string column_str(statement& statement, std::size_t index);
+const char* column_cstr(statement& statement, std::size_t index);
+std::size_t column_bytes(statement& statement, std::size_t index);
 
 std::size_t column_count(statement& statement);
 std::string column_type_str(statement& statement, std::size_t index);
@@ -143,11 +137,60 @@ bool exec(database& database, const char* sql, std::size_t size, std::function<b
 bool exec(database& database, const char* sql, std::function<bool(std::size_t, const char* const*, const char* const*)> functor);
 bool exec(database& database, const std::string& sql, std::function<bool(std::size_t, const char* const*, const char* const*)> functor);
 
+namespace detail {
 
+template <std::size_t NumArgs, std::size_t Index, class... Args> struct assign_t {
+	static void invoke(std::tuple<Args...>& dest, statement& statement, std::size_t num_cols) {
+		if (Index < num_cols) {
+			typedef std::remove_reference<decltype(std::get < Index >(dest))>::type type;
+			std::get < Index >(dest) = column<type>(statement, Index);
+			assign_t<NumArgs, Index + 1, Args...>::invoke(dest, statement, num_cols);
+		}
+	}
+};
 
-template <class T> inline T exec(database& database, const char* sql, std::size_t bytes) {
-	static_assert("Requested type T is invalid.", false);
+template <std::size_t NumArgs, class... Args> struct assign_t<NumArgs, NumArgs, Args...> {
+	static void invoke(std::tuple<Args...>& dest, statement& statement, std::size_t num_cols) {
+	}
+};
+
 }
+
+template <class... Args> inline std::tuple<Args...> exec(database& database, const char* sql, std::size_t size) {
+	std::tuple<Args...> result;
+	if (database) {
+		if (sql == nullptr && size != 0) {
+			throw std::invalid_argument("sql");
+		}
+
+		const char* itr = sql;
+		const char* end = sql + size;
+
+		while (itr < end) {
+			statement statement = prepare(database, itr, end - itr, itr);
+			do {
+				auto state = step(statement);
+				auto count = column_count(statement);
+				if (count != 0) {
+					detail::assign_t<sizeof...(Args), 0, Args...>::invoke(result, statement, count);
+				}
+			} while (step(statement) != done);
+
+
+		}
+	}
+	else {
+		throw std::invalid_argument("database");
+	}
+
+	return result;
+}
+
+
+
+
+
+
 
 /*template <> inline std::pair<bool, long long> exec<long long>(database& database, const char* sql, std::size_t bytes) {
 	const char* itr = sql;
@@ -193,12 +236,12 @@ template <class T> inline T exec(database& database, const char* sql, std::size_
 	return std::make_pair(initialized, func_result);
 }*/
 
-template <class T> inline T exec(database& database, const char* sql) {
-	return exec<T>(database, sql, std::strlen(sql));
+template <class... Args> inline std::tuple<Args...> exec(database& database, const char* sql) {
+	return exec<Args...>(database, sql, std::strlen(sql));
 }
 
-template <class T> inline T exec(database& database, const std::string& sql) {
-	return exec<T>(database, sql.c_str(), sql.size());
+template <class... Args> inline std::tuple<Args...> exec(database& database, const std::string& sql) {
+	return exec<Args...>(database, sql.c_str(), sql.size());
 }
 
 class sqlite_error : public std::runtime_error {

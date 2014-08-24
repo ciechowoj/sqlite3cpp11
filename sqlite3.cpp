@@ -359,6 +359,7 @@ bool exec(database& database, const char* sql, std::size_t size, std::function<b
 		}
 
 		if (closure.exception) {
+			sqlite3_free(errmsg);
 			std::rethrow_exception(closure.exception);
 		}
 		else if (result == SQLITE_ABORT) {
@@ -366,7 +367,13 @@ bool exec(database& database, const char* sql, std::size_t size, std::function<b
 		}
 		else if (result != SQLITE_OK) {
 			if (errmsg) {
-				detail::throw_exception(SQLITE_ERROR, errmsg);
+				try {
+					detail::throw_exception(SQLITE_ERROR, errmsg);
+				}
+				catch (...) {
+					sqlite3_free(errmsg);
+					throw;
+				}
 			}
 			else {
 				throw_exception(database);
