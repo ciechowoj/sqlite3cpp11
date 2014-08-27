@@ -1,4 +1,4 @@
 sqlite3pp
 =========
 
-Yet another C++11 wrapper for SQLite3.
+An experimental C++11 API for SQLite3.
