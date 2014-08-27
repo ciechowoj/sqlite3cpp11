@@ -89,16 +89,34 @@ TEST_F(sqlite3cpp_test, exec_should_throw_exception) {
 }
 
 TEST_F(sqlite3cpp_test, tuple_exec_should_execute_statement) {
+	auto tuple = sqlite3::exec<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" WHERE first = 1;");
 
-
-
-	auto a = sqlite3::exec<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" WHERE first = 1;");
-
-
-
+	EXPECT_EQ(1, std::get<0>(tuple));
+	EXPECT_EQ("one", std::get<1>(tuple));
+	EXPECT_GT(0.0001, std::abs(11.11 - std::get<2>(tuple)));
+	EXPECT_EQ("first", std::get<3>(tuple));
 }
 
+TEST_F(sqlite3cpp_test, vexec_should_execute_statement) {
+	auto vector = sqlite3::vexec<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" ORDER BY first;");
 
+	ASSERT_EQ(10, vector.size());
+
+	EXPECT_EQ(0, std::get<0>(vector[0]));
+	EXPECT_EQ("zero", std::get<1>(vector[0]));
+	EXPECT_GT(0.0001, std::abs(0.0 - std::get<2>(vector[0])));
+	EXPECT_EQ("null", std::get<3>(vector[0]));
+
+	EXPECT_EQ(5, std::get<0>(vector[5]));
+	EXPECT_EQ("five", std::get<1>(vector[5]));
+	EXPECT_GT(0.0001, std::abs(55.55 - std::get<2>(vector[5])));
+	EXPECT_EQ("fifth", std::get<3>(vector[5]));
+
+	EXPECT_EQ(9, std::get<0>(vector[9]));
+	EXPECT_EQ("nine", std::get<1>(vector[9]));
+	EXPECT_GT(0.0001, std::abs(99.99 - std::get<2>(vector[9])));
+	EXPECT_EQ("ninth", std::get<3>(vector[9]));
+}
 
 
 

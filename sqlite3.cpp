@@ -1,6 +1,8 @@
 #include <sqlite3.hpp>
 #include <sqlite3.h>
 #include <limits>
+#include <cstdio>
+
 namespace sqlite3cpp {
 namespace detail {
 
@@ -264,14 +266,196 @@ void finalize(statement& statement) {
 		if (sqlite3_finalize(impl(statement)) != SQLITE_OK) {
 			throw_exception(database);
 		}
+		impl(statement) = nullptr;
+	}
+}
+
+template <> float column<float>(statement& statement, std::size_t index) {
+	return static_cast<float>(column<double>(statement, index));
+}
+
+template <> double column<double>(statement& statement, std::size_t index) {
+	if (!statement) {
+		throw std::invalid_argument("statement");
+	}
+	if (column_count(statement) <= index) {
+		throw std::invalid_argument("index");
+	}
+
+	return sqlite3_column_double(impl(statement), index);
+}
+
+namespace detail {
+
+template <class T> inline T checked_column(statement& statement, std::size_t index) {
+	static const std::size_t buffer_size = 20;
+	char buffer[buffer_size + 1];
+	auto format_message = [&](long long value) -> const char* {
+		std::sprintf(buffer, "%lld", value);
+		return buffer;
+	};
+
+	if (statement) {
+		if (index < column_count(statement)) {
+			long long result = column<long long>(statement, index);
+			if (result < static_cast<long long>(std::numeric_limits<T>::min())) {
+				throw std::underflow_error(format_message(result));
+			}
+			if (result > static_cast<long long>(std::numeric_limits<T>::max())) {
+				throw std::overflow_error(format_message(result));
+			}
+
+			return static_cast<T>(result);
+		}
+		else {
+			throw std::invalid_argument("index");
+		}
 	}
 	else {
 		throw std::invalid_argument("statement");
 	}
 }
 
+}
 
+template <> signed char column<signed char>(statement& statement, std::size_t index) {
+	return detail::checked_column<signed char>(statement, index);
+}
 
+template <> unsigned char column<unsigned char>(statement& statement, std::size_t index) {
+	return detail::checked_column<unsigned char>(statement, index);
+}
+
+template <> short column<short>(statement& statement, std::size_t index) {
+	return detail::checked_column<short>(statement, index);
+}
+
+template <> unsigned short column<unsigned short>(statement& statement, std::size_t index) {
+	return detail::checked_column<unsigned short>(statement, index);
+}
+
+template <> int column<int>(statement& statement, std::size_t index) {
+	return detail::checked_column<int>(statement, index);
+}
+
+template <> unsigned int column<unsigned int>(statement& statement, std::size_t index) {
+	return detail::checked_column<unsigned int>(statement, index);
+}
+
+template <> long column<long>(statement& statement, std::size_t index) {
+	return detail::checked_column<long>(statement, index);
+}
+
+template <> unsigned long column<unsigned long>(statement& statement, std::size_t index) {
+	return detail::checked_column<unsigned long>(statement, index);
+}
+
+template <> long long column<long long>(statement& statement, std::size_t index) {
+	if (statement) {
+		if (index < column_count(statement)) {
+			return sqlite3_column_int64(impl(statement), static_cast<int>(index));
+		}
+		else {
+			throw std::invalid_argument("index");
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> unsigned long long column<unsigned long long>(statement& statement, std::size_t index) {
+	static const std::size_t buffer_size = 20;
+	char buffer[buffer_size + 1];
+	auto format_message = [&](long long value) -> const char* {
+		std::sprintf(buffer, "%lld", value);
+		return buffer;
+	};
+
+	if (statement) {
+		if (index < column_count(statement)) {
+			long long result = column<long long>(statement, index);
+			if (result < 0) {
+				throw std::underflow_error(format_message(result));
+			}
+
+			return static_cast<unsigned long long>(result);
+		}
+		else {
+			throw std::invalid_argument("index");
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> std::string column<std::string>(statement& statement, std::size_t index) {
+	if (statement) {
+		if (index < column_count(statement)) {
+			auto cstr = sqlite3_column_text(impl(statement), static_cast<int>(index));
+			auto size = sqlite3_column_bytes(impl(statement), static_cast<int>(index));
+			return std::string(cstr, cstr + size);
+		}
+		else {
+			throw std::invalid_argument("index");
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+std::string column_str(statement& statement, std::size_t index) {
+	return column<std::string>(statement, index);
+}
+
+const char* column_cstr(statement& statement, std::size_t index) {
+	if (statement) {
+		if (index < column_count(statement)) {
+			auto result = sqlite3_column_text(impl(statement), static_cast<int>(index));
+			return reinterpret_cast<const char*>(result);
+		}
+		else {
+			throw std::invalid_argument("index");
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+std::size_t column_bytes(statement& statement, std::size_t index) {
+	if (statement) {
+		if (index < column_count(statement)) {
+			return sqlite3_column_bytes(impl(statement), static_cast<int>(index));
+		}
+		else {
+			throw std::invalid_argument("index");
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+std::size_t column_count(statement& statement) {
+	if (statement) {
+		return sqlite3_column_count(impl(statement));
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+std::size_t data_count(statement& statement) {
+	if (statement) {
+		return sqlite3_data_count(impl(statement));
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
 
 database::database() 
 	: _impl(nullptr) {

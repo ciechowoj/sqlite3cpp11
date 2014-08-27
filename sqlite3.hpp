@@ -48,10 +48,6 @@ statement prepare(database& database, const char* sql, std::size_t bytes, const 
 result_t step(statement& statement);
 void finalize(statement& statement);
 
-
-
-
-
 void clear_bindings(statement& statement);
 void bind(statement& statement, std::size_t index, double value);
 void bind(statement& statement, std::size_t index, long long value);
@@ -67,7 +63,6 @@ std::size_t bind_parameter_index(statement& statement, const char* name);
 std::size_t bind_parameter_index(statement& statement, const std::string& name);
 std::string bind_parameter_name_str(statement& statement, std::size_t index);
 const char* bind_parameter_name_cstr(statement& statement, std::size_t index);
-
 
 template <class T> inline T column(statement& statement, std::size_t index) {
 	static_assert("Requested type T is invalid.", false);
@@ -92,6 +87,7 @@ const char* column_cstr(statement& statement, std::size_t index);
 std::size_t column_bytes(statement& statement, std::size_t index);
 
 std::size_t column_count(statement& statement);
+std::size_t data_count(statement& statement);
 std::string column_type_str(statement& statement, std::size_t index);
 const char* column_type_cstr(statement& statement, std::size_t index);
 std::string column_decltype_str(statement& statement, std::size_t index);
@@ -154,10 +150,7 @@ template <std::size_t NumArgs, class... Args> struct assign_t<NumArgs, NumArgs, 
 	}
 };
 
-}
-
-template <class... Args> inline std::tuple<Args...> exec(database& database, const char* sql, std::size_t size) {
-	std::tuple<Args...> result;
+template <class F> inline void exec(database& database, const char* sql, std::size_t size, F functor) {
 	if (database) {
 		if (sql == nullptr && size != 0) {
 			throw std::invalid_argument("sql");
@@ -168,73 +161,48 @@ template <class... Args> inline std::tuple<Args...> exec(database& database, con
 
 		while (itr < end) {
 			statement statement = prepare(database, itr, end - itr, itr);
+			auto state = done;
 			do {
-				auto state = step(statement);
-				auto count = column_count(statement);
+				state = step(statement);
+				auto count = data_count(statement);
 				if (count != 0) {
-					detail::assign_t<sizeof...(Args), 0, Args...>::invoke(result, statement, count);
+					functor(statement, count);
 				}
-			} while (step(statement) != done);
-
-
+			} while (state != done);
 		}
 	}
 	else {
 		throw std::invalid_argument("database");
 	}
+}
+
+}
+
+template <class... Args> inline std::tuple<Args...> exec(database& database, const char* sql, std::size_t size) {
+	std::tuple<Args...> result;
+	detail::exec(database, sql, size, [&](statement& statement, std::size_t count) {
+		detail::assign_t<sizeof...(Args), 0, Args...>::invoke(result, statement, count);
+	});
 
 	return result;
 }
 
+template <class... Args, class F> inline void fexec(database& database, const char* sql, std::size_t size, F functor) {
+	detail::exec(database, sql, size, [&](statement& statement, std::size_t count) {
+		std::tuple<Args...> result;
+		detail::assign_t<sizeof...(Args), 0, Args...>::invoke(result, statement, count);
+		functor(result);
+	});
+}
 
-
-
-
-
-
-/*template <> inline std::pair<bool, long long> exec<long long>(database& database, const char* sql, std::size_t bytes) {
-	const char* itr = sql;
-	const char* end = sql + bytes;
-	sqlite3cpp::statement statement;
-	long long func_result = 0;
-	bool initialized = false;
-	while (itr != end) {
-		statement = prepare(database, itr, end - itr, itr);
-		result_t step_result = done;
-		do {
-			step_result = step(statement);
-			if (!initialized && column_count(statement) != 0) {
-				func_result = column<long long>(statement, 0);
-				initialized = true;
-			}
-		} while (step_result != done);
-		finalize(statement);
-	}
-
-	return std::make_pair(initialized, func_result);
-}*/
-
-/*template <> inline std::pair<bool, unsigned long long> exec<unsigned long long>(database& database, const char* sql, std::size_t bytes) {
-	const char* itr = sql;
-	const char* end = sql + bytes;
-	sqlite3cpp::statement statement;
-	long long func_result = 0;
-	bool initialized = false;
-	while (itr != end) {
-		statement = prepare(database, itr, end - itr, itr);
-		result_t step_result = done;
-		do {
-			step_result = step(statement);
-			if (!initialized && column_count(statement) != 0) {
-				func_result = column<long long>(statement, 0);
-				initialized = true;
-			}
-		} while (step_result != done);
-		finalize(statement);
-	}
-
-	return std::make_pair(initialized, func_result);
-}*/
+template <class... Args> inline std::vector<std::tuple<Args...> > vexec(database& database, const char* sql, std::size_t size) {
+	std::vector<std::tuple<Args...> > result;
+	detail::exec(database, sql, size, [&](statement& statement, std::size_t count) {
+		result.emplace_back();
+		detail::assign_t<sizeof...(Args), 0, Args...>::invoke(result.back(), statement, count);
+	});
+	return result;
+}
 
 template <class... Args> inline std::tuple<Args...> exec(database& database, const char* sql) {
 	return exec<Args...>(database, sql, std::strlen(sql));
@@ -242,6 +210,14 @@ template <class... Args> inline std::tuple<Args...> exec(database& database, con
 
 template <class... Args> inline std::tuple<Args...> exec(database& database, const std::string& sql) {
 	return exec<Args...>(database, sql.c_str(), sql.size());
+}
+
+template <class... Args> inline std::vector<std::tuple<Args...> > vexec(database& database, const char* sql) {
+	return vexec<Args...>(database, sql, std::strlen(sql));
+}
+
+template <class... Args> inline std::vector<std::tuple<Args...> > vexec(database& database, const std::string& sql) {
+	return vexec<Args...>(database, sql.c_str(), sql.size());
 }
 
 class sqlite_error : public std::runtime_error {
