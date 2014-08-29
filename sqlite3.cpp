@@ -2,6 +2,7 @@
 #include <sqlite3.h>
 #include <limits>
 #include <cstdio>
+#include <cstdarg>
 
 namespace sqlite3cpp {
 namespace detail {
@@ -581,7 +582,89 @@ bool exec(database& database, const std::string& sql, std::function<bool(std::si
 	return exec(database, sql.c_str(), sql.size(), functor);
 }
 
+namespace detail {
 
+inline void bind(
+	statement& statement, 
+	std::size_t index, 
+	const param_info& param_info, 
+	const std::function<void(sqlt3::statement&, std::size_t, const detail::param_info&)>& bind_callback) {
+	switch (param_info.tag) {
+	case tag_nullptr_t: sqlt3::bind<nullptr_t>(statement, index, *static_cast<const nullptr_t*>(param_info.ptr)); break;
+	case tag_bool: sqlt3::bind<bool>(statement, index, *static_cast<const bool*>(param_info.ptr)); break;
+	case tag_char: sqlt3::bind<char>(statement, index, *static_cast<const char*>(param_info.ptr)); break;
+	case tag_schar: sqlt3::bind<signed char>(statement, index, *static_cast<const signed char*>(param_info.ptr)); break;
+	case tag_uchar: sqlt3::bind<unsigned char>(statement, index, *static_cast<const unsigned char*>(param_info.ptr)); break;
+	case tag_wchar_t: sqlt3::bind<wchar_t>(statement, index, *static_cast<const wchar_t*>(param_info.ptr)); break;
+	case tag_char16_t: sqlt3::bind<char16_t>(statement, index, *static_cast<const char16_t*>(param_info.ptr)); break;
+	case tag_char32_t: sqlt3::bind<char32_t>(statement, index, *static_cast<const char32_t*>(param_info.ptr)); break;
+	case tag_short: sqlt3::bind<short>(statement, index, *static_cast<const short*>(param_info.ptr)); break;
+	case tag_ushort: sqlt3::bind<unsigned short>(statement, index, *static_cast<const unsigned short*>(param_info.ptr)); break;
+	case tag_int: sqlt3::bind<int>(statement, index, *static_cast<const int*>(param_info.ptr)); break;
+	case tag_uint: sqlt3::bind<unsigned int>(statement, index, *static_cast<const unsigned int*>(param_info.ptr)); break;
+	case tag_long: sqlt3::bind<long>(statement, index, *static_cast<const long*>(param_info.ptr)); break;
+	case tag_ulong: sqlt3::bind<unsigned long>(statement, index, *static_cast<const unsigned long*>(param_info.ptr)); break;
+	case tag_longlong: sqlt3::bind<long long>(statement, index, *static_cast<const long long*>(param_info.ptr)); break;
+	case tag_ulonglong: sqlt3::bind<unsigned long long>(statement, index, *static_cast<const unsigned long long*>(param_info.ptr)); break;
+	case tag_float: sqlt3::bind<float>(statement, index, *static_cast<const float*>(param_info.ptr)); break;
+	case tag_double: sqlt3::bind<double>(statement, index, *static_cast<const double*>(param_info.ptr)); break;
+	case tag_string: sqlt3::bind<std::string>(statement, index, *static_cast<const std::string*>(param_info.ptr)); break;
+	case tag_cstring: sqlt3::bind<const char*>(statement, index, *static_cast<const char* const*>(param_info.ptr)); break;
+	case tag_generic: bind_callback(statement, index, param_info); break;
+	}
+}
+
+void exec(
+	database& database,
+	const char* sql,
+	std::size_t sql_size,
+	const std::function<void(statement&, std::size_t)>& column_callback,
+	const std::function<void(statement&, std::size_t, const param_info&)>& bind_callback,
+	std::size_t num_params,
+	...
+	) {
+	if (database) {
+		if (sql != nullptr || sql_size == 0) {
+			va_list _va_list;
+			va_start(_va_list, num_params);
+			std::size_t param_num = 0;
+			try {
+				const char* itr = sql;
+				const char* end = sql + sql_size;
+				while (itr < end) {
+					statement statement = prepare(database, itr, end - itr, itr);
+					std::size_t bind_count = bind_parameter_count(statement);
+					for (std::size_t i = 0; i < bind_count && param_num < num_params; ++i) {
+						auto param_info = va_arg(_va_list, detail::param_info*);
+						detail::bind(statement, i, *param_info, bind_callback);
+						++param_num;
+					}
+
+					auto state = done;
+					do {
+						state = step(statement);
+						auto count = data_count(statement);
+						if (count != 0) {
+							column_callback(statement, count);
+						}
+					} while (state != done);
+				}
+			}
+			catch (...) {
+				va_end(_va_list);
+				throw;
+			}
+		}
+		else {
+			throw std::invalid_argument("sql");
+		}
+	}
+	else {
+		throw std::invalid_argument("database");
+	}
+}
+
+}
 
 sqlite_error::sqlite_error(const char* message)
 	: std::runtime_error(message) {

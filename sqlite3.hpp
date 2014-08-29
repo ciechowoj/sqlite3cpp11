@@ -1,3 +1,4 @@
+#pragma once
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -49,14 +50,32 @@ result_t step(statement& statement);
 void finalize(statement& statement);
 
 void clear_bindings(statement& statement);
-void bind(statement& statement, std::size_t index, double value);
-void bind(statement& statement, std::size_t index, long long value);
-void bind(statement& statement, std::size_t index, unsigned long long value);
-void bind(statement& statement, std::size_t index, const std::string& value);
-void bind(statement& statement, std::size_t index, const char* value);
-void bind(statement& statement, std::size_t index, const char* value, std::size_t bytes);
-void bind_null(statement& statement, std::size_t index);
-void bind_zeros(statement& statement, std::size_t index, std::size_t bytes);
+
+
+template <class T> inline void bind(statement& statement, std::size_t index, const T& value) {
+	static_assert("Requested type T is invalid.", false);
+}
+
+template <> void bind<nullptr_t>(statement& statement, std::size_t index, const nullptr_t& value);
+template <> void bind<bool>(statement& statement, std::size_t index, const bool& value);
+template <> void bind<char>(statement& statement, std::size_t index, const char& value);
+template <> void bind<signed char>(statement& statement, std::size_t index, const signed char& value);
+template <> void bind<unsigned char>(statement& statement, std::size_t index, const unsigned char& value);
+template <> void bind<wchar_t>(statement& statement, std::size_t index, const wchar_t& value);
+// template <> void bind<char16_t>(statement& statement, std::size_t index, const char16_t& value);
+// template <> void bind<char32_t>(statement& statement, std::size_t index, const char32_t& value);
+template <> void bind<short>(statement& statement, std::size_t index, const short& value);
+template <> void bind<unsigned short>(statement& statement, std::size_t index, const unsigned short& value);
+template <> void bind<int>(statement& statement, std::size_t index, const int& value);
+template <> void bind<unsigned int>(statement& statement, std::size_t index, const unsigned int& value);
+template <> void bind<long>(statement& statement, std::size_t index, const long& value);
+template <> void bind<unsigned long>(statement& statement, std::size_t index, const unsigned long& value);
+template <> void bind<long long>(statement& statement, std::size_t index, const long long& value);
+template <> void bind<unsigned long long>(statement& statement, std::size_t index, const unsigned long long& value);
+template <> void bind<float>(statement& statement, std::size_t index, const float& value);
+template <> void bind<double>(statement& statement, std::size_t index, const double& value);
+template <> void bind<std::string>(statement& statement, std::size_t index, const std::string& value);
+template <> void bind<const char*>(statement& statement, std::size_t index, char const* const& value);
 
 std::size_t bind_parameter_count(statement& statement);
 std::size_t bind_parameter_index(statement& statement, const char* name);
@@ -176,8 +195,6 @@ template <class F> inline void exec(database& database, const char* sql, std::si
 	}
 }
 
-}
-
 template <class... Args> inline std::tuple<Args...> exec(database& database, const char* sql, std::size_t size) {
 	std::tuple<Args...> result;
 	detail::exec(database, sql, size, [&](statement& statement, std::size_t count) {
@@ -204,20 +221,124 @@ template <class... Args> inline std::vector<std::tuple<Args...> > vexec(database
 	return result;
 }
 
-template <class... Args> inline std::tuple<Args...> exec(database& database, const char* sql) {
-	return exec<Args...>(database, sql, std::strlen(sql));
 }
 
-template <class... Args> inline std::tuple<Args...> exec(database& database, const std::string& sql) {
-	return exec<Args...>(database, sql.c_str(), sql.size());
+
+namespace detail {
+
+enum tag {
+	tag_void,
+	tag_nullptr_t,
+	tag_bool,
+	tag_char,
+	tag_schar,
+	tag_uchar,
+	tag_wchar_t,
+	tag_char16_t,
+	tag_char32_t,
+	tag_short,
+	tag_ushort,
+	tag_int,
+	tag_uint,
+	tag_long,
+	tag_ulong,
+	tag_longlong,
+	tag_ulonglong,
+	tag_float,
+	tag_double,
+	tag_string,
+	tag_cstring,
+	tag_generic
+};
+
+template <class T> struct type_tag { static const tag value = tag_generic; };
+template <> struct type_tag<void> { static const tag value = tag_void; };
+template <> struct type_tag<nullptr_t> { static const tag value = tag_nullptr_t; };
+template <> struct type_tag<bool> { static const tag value = tag_bool; };
+template <> struct type_tag<char> { static const tag value = tag_char; };
+template <> struct type_tag<signed char> { static const tag value = tag_schar; };
+template <> struct type_tag<unsigned char> { static const tag value = tag_uchar; };
+template <> struct type_tag<wchar_t> { static const tag value = tag_wchar_t; };
+// template <> struct type_tag<char16_t> { static const tag value = tag_char16_t; };
+// template <> struct type_tag<char32_t> { static const tag value = tag_char32_t; };
+template <> struct type_tag<short> { static const tag value = tag_short; };
+template <> struct type_tag<unsigned short> { static const tag value = tag_ushort; };
+template <> struct type_tag<int> { static const tag value = tag_int; };
+template <> struct type_tag<unsigned int> { static const tag value = tag_uint; };
+template <> struct type_tag<long> { static const tag value = tag_long; };
+template <> struct type_tag<unsigned long> { static const tag value = tag_ulong; };
+template <> struct type_tag<long long> { static const tag value = tag_long; };
+template <> struct type_tag<unsigned long long> { static const tag value = tag_ulong; };
+template <> struct type_tag<float> { static const tag value = tag_float; };
+template <> struct type_tag<double> { static const tag value = tag_double; };
+template <> struct type_tag<std::string> { static const tag value = tag_string; };
+template <> struct type_tag<const char*> { static const tag value = tag_cstring; };
+
+struct param_info {
+	template <class T> param_info(const T& param)
+		: ptr(&param)
+		, tag(type_tag<T>::value)
+		, info(typeid(T)) {
+	}
+	
+	void const* const ptr;
+	const tag tag;
+	const std::type_info& info;
+};
+
+template <class... Args> struct bind_t;
+
+template <class T, class... Args> struct bind_t<T, Args...> {
+	static void invoke(statement& statement, std::size_t index, const void* param, const std::type_info& info) {
+		if (typeid(T) == info) {
+			bind<T>(statement, index, *static_cast<const T*>(param));
+		}
+		else {
+			bind_t<Args...>::invoke(statement, index, param, info);
+		}
+	}
+};
+
+template <> struct bind_t<> {
+	static void invoke(statement& statement, std::size_t index, const void* param, const std::type_info& info) {
+	}
+};
+
+void exec(
+	database& database, 
+	const char* sql, 
+	std::size_t sql_size, 
+	const std::function<void(statement&, std::size_t)>& column_callback,
+	const std::function<void(statement&, std::size_t, const param_info&)>& bind_callback,
+	std::size_t num_params,
+	...
+	);
+
 }
 
-template <class... Args> inline std::vector<std::tuple<Args...> > vexec(database& database, const char* sql) {
-	return vexec<Args...>(database, sql, std::strlen(sql));
-}
+template <class... Results, class... Params> 
+inline std::tuple<Results...> exec(database& database, const char* sql, const Params&... params) {
+	std::tuple<Results...> result;
 
-template <class... Args> inline std::vector<std::tuple<Args...> > vexec(database& database, const std::string& sql) {
-	return vexec<Args...>(database, sql.c_str(), sql.size());
+	auto column_callback = [&](statement& statement, std::size_t count) {
+		detail::assign_t<sizeof...(Results), 0, Results...>::invoke(result, statement, count);
+	};
+
+	auto bind_callback = [&](statement& statement, std::size_t index, const detail::param_info& param) {
+		detail::bind_t<Params...>::invoke(statement, index, param.ptr, param.info);
+	};
+
+	detail::exec(
+		database, 
+		sql,
+		std::strlen(sql),
+		column_callback,
+		bind_callback,
+		sizeof...(params),
+		&detail::param_info(params)...
+		);
+
+	return result;
 }
 
 class sqlite_error : public std::runtime_error {
@@ -596,4 +717,4 @@ class readonly_rollback_error : public readonly_error {
 
 }
 
-namespace sqlite = sqlite3cpp;
+namespace sqlt3 = sqlite3cpp;
