@@ -57,7 +57,6 @@ template <class T> inline void bind(statement& statement, std::size_t index, con
 }
 
 template <> void bind<nullptr_t>(statement& statement, std::size_t index, const nullptr_t& value);
-template <> void bind<bool>(statement& statement, std::size_t index, const bool& value);
 template <> void bind<char>(statement& statement, std::size_t index, const char& value);
 template <> void bind<signed char>(statement& statement, std::size_t index, const signed char& value);
 template <> void bind<unsigned char>(statement& statement, std::size_t index, const unsigned char& value);

@@ -191,6 +191,16 @@ inline void throw_exception(statement& statement) {
 	throw_exception(sqlite3_db_handle(impl(statement)));
 }
 
+template <class T, class S> inline T safe_downcast(const S& s) {
+	if (s <= static_cast<S>(std::numeric_limits<T>::max())) {
+		return static_cast<T>(s);
+	}
+	else {
+		throw std::overflow_error(std::to_string(s));
+	}
+}
+
+
 const unsigned open_nomutex = SQLITE_OPEN_NOMUTEX;
 const unsigned open_fullmutex = SQLITE_OPEN_FULLMUTEX;
 const unsigned open_sharedcache = SQLITE_OPEN_SHAREDCACHE;
@@ -270,6 +280,225 @@ void finalize(statement& statement) {
 		impl(statement) = nullptr;
 	}
 }
+
+template <> void bind<nullptr_t>(statement& statement, std::size_t index, const nullptr_t& value) {
+	if (statement) {
+		if (sqlite3_bind_null(impl(statement), safe_downcast<int>(index)) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<char>(statement& statement, std::size_t index, const char& value) {
+	if (statement) {
+		if (sqlite3_bind_int(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<signed char>(statement& statement, std::size_t index, const signed char& value) {
+	if (statement) {
+		if (sqlite3_bind_int(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<unsigned char>(statement& statement, std::size_t index, const unsigned char& value) {
+	if (statement) {
+		if (sqlite3_bind_int(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<wchar_t>(statement& statement, std::size_t index, const wchar_t& value) {
+	if (statement) {
+		if (sqlite3_bind_int64(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+/* template <> void bind<char16_t>(statement& statement, std::size_t index, const char16_t& value) {
+	if (statement) {
+		if (sqlite3_bind_int(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+		throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}*/
+
+/* template <> void bind<char32_t>(statement& statement, std::size_t index, const char32_t& value) {
+	if (statement) {
+		if (sqlite3_bind_int64(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+		throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}*/
+
+template <> void bind<short>(statement& statement, std::size_t index, const short& value) {
+	if (statement) {
+		if (sqlite3_bind_int(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<unsigned short>(statement& statement, std::size_t index, const unsigned short& value) {
+	if (statement) {
+		if (sqlite3_bind_int(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<int>(statement& statement, std::size_t index, const int& value) {
+	if (statement) {
+		if (sqlite3_bind_int(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<unsigned int>(statement& statement, std::size_t index, const unsigned int& value) {
+	if (statement) {
+		if (sqlite3_bind_int64(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<long>(statement& statement, std::size_t index, const long& value) {
+	if (statement) {
+		if (sqlite3_bind_int64(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<unsigned long>(statement& statement, std::size_t index, const unsigned long& value) {
+	if (statement) {
+		if (sqlite3_bind_int64(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<long long>(statement& statement, std::size_t index, const long long& value) {
+	if (statement) {
+		if (sqlite3_bind_int64(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<unsigned long long>(statement& statement, std::size_t index, const unsigned long long& value) {
+	if (statement) {
+		if (sqlite3_bind_int64(impl(statement), safe_downcast<int>(index), safe_downcast<long long>(value)) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<float>(statement& statement, std::size_t index, const float& value) {
+	if (statement) {
+		if (sqlite3_bind_double(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<double>(statement& statement, std::size_t index, const double& value) {
+	if (statement) {
+		if (sqlite3_bind_double(impl(statement), safe_downcast<int>(index), value) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<std::string>(statement& statement, std::size_t index, const std::string& value) {
+	if (statement) {
+		if (sqlite3_bind_text(impl(statement), safe_downcast<int>(index), value.c_str(), safe_downcast<int>(value.size()), nullptr) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+template <> void bind<const char*>(statement& statement, std::size_t index, char const* const& value) {
+	if (statement) {
+		if (sqlite3_bind_text(impl(statement), safe_downcast<int>(index), value, safe_downcast<int>(std::strlen(value)), nullptr) != SQLITE_OK) {
+			throw_exception(statement);
+		}
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
+std::size_t bind_parameter_count(statement& statement) {
+	if (statement) {
+		return static_cast<std::size_t>(sqlite3_bind_parameter_count(impl(statement)));
+	}
+	else {
+		throw std::invalid_argument("statement");
+	}
+}
+
 
 template <> float column<float>(statement& statement, std::size_t index) {
 	return static_cast<float>(column<double>(statement, index));
@@ -591,7 +820,6 @@ inline void bind(
 	const std::function<void(sqlt3::statement&, std::size_t, const detail::param_info&)>& bind_callback) {
 	switch (param_info.tag) {
 	case tag_nullptr_t: sqlt3::bind<nullptr_t>(statement, index, *static_cast<const nullptr_t*>(param_info.ptr)); break;
-	case tag_bool: sqlt3::bind<bool>(statement, index, *static_cast<const bool*>(param_info.ptr)); break;
 	case tag_char: sqlt3::bind<char>(statement, index, *static_cast<const char*>(param_info.ptr)); break;
 	case tag_schar: sqlt3::bind<signed char>(statement, index, *static_cast<const signed char*>(param_info.ptr)); break;
 	case tag_uchar: sqlt3::bind<unsigned char>(statement, index, *static_cast<const unsigned char*>(param_info.ptr)); break;
@@ -636,7 +864,7 @@ void exec(
 					std::size_t bind_count = bind_parameter_count(statement);
 					for (std::size_t i = 0; i < bind_count && param_num < num_params; ++i) {
 						auto param_info = va_arg(_va_list, detail::param_info*);
-						detail::bind(statement, i, *param_info, bind_callback);
+						detail::bind(statement, i + 1, *param_info, bind_callback);
 						++param_num;
 					}
 
