@@ -35,25 +35,17 @@ TEST_F(sqlite3cpp_test, close) {
 }
 
 TEST_F(sqlite3cpp_test, exec_should_execute_statement) {
-	/*std::vector<std::size_t> num_cols_vec;
-	std::vector<std::string> values_vec;
-	std::vector<std::string> names_vec;
+	std::vector<std::string> values;
 
-	auto functor = [&](std::size_t num_cols, const char* const* values, const char* const* names) -> bool {
-		num_cols_vec.push_back(num_cols);
-		values_vec.push_back(values[0]);
-		names_vec.push_back(names[0]);
+	auto functor = [&](const std::string& value) -> bool {
+		values.push_back(value);
 		return false;
 	};
 
-	ASSERT_EQ(false, sqlite3::exec(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor));
-	ASSERT_EQ(2, num_cols_vec.size());
-	EXPECT_EQ(1, num_cols_vec[0]);
-	EXPECT_EQ(1, num_cols_vec[1]);
-	EXPECT_TRUE(std::to_string(1) == values_vec[0] || std::to_string(2) == values_vec[0]);
-	EXPECT_TRUE(std::to_string(1) == values_vec[1] || std::to_string(2) == values_vec[1]);
-	EXPECT_EQ("value", names_vec[0]);
-	EXPECT_EQ("value", names_vec[1]);*/
+	sqlite3::fexec<std::string>(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor);
+	ASSERT_EQ(2, values.size());
+	EXPECT_TRUE(std::to_string(1) == values[0] || std::to_string(2) == values[0]);
+	EXPECT_TRUE(std::to_string(1) == values[1] || std::to_string(2) == values[1]);
 }
 
 TEST_F(sqlite3cpp_test, exec_should_execute_statement_and_abort) {
@@ -76,16 +68,16 @@ TEST_F(sqlite3cpp_test, exec_should_execute_statement_and_abort) {
 }
 
 TEST_F(sqlite3cpp_test, exec_should_throw_exception) {
-	/*std::vector<std::size_t> num_cols_vec;
+	std::vector<std::size_t> num_cols_vec;
 	std::vector<std::string> values_vec;
 	std::vector<std::string> names_vec;
 
-	auto functor = [&](std::size_t num_cols, const char* const* values, const char* const* names) -> bool {
+	auto functor = [&]() -> bool {
 		throw std::string("today is the day");
 		return true;
 	};
 
-	ASSERT_THROW(sqlite3::exec(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor), std::string);*/
+	ASSERT_THROW(sqlite3::fexec(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor), std::string);
 }
 
 TEST_F(sqlite3cpp_test, tuple_exec_should_execute_statement) {
@@ -98,7 +90,7 @@ TEST_F(sqlite3cpp_test, tuple_exec_should_execute_statement) {
 }
 
 TEST_F(sqlite3cpp_test, vexec_should_execute_statement) {
-	/*auto vector = sqlite3::vexec<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" ORDER BY first;");
+	auto vector = sqlite3::vexec<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" ORDER BY first;");
 
 	ASSERT_EQ(10, vector.size());
 
@@ -115,7 +107,7 @@ TEST_F(sqlite3cpp_test, vexec_should_execute_statement) {
 	EXPECT_EQ(9, std::get<0>(vector[9]));
 	EXPECT_EQ("nine", std::get<1>(vector[9]));
 	EXPECT_GT(0.0001, std::abs(99.99 - std::get<2>(vector[9])));
-	EXPECT_EQ("ninth", std::get<3>(vector[9]));*/
+	EXPECT_EQ("ninth", std::get<3>(vector[9]));
 }
 
 TEST_F(sqlite3cpp_test, tuple_exec_should_execute_statement_with_binding) {

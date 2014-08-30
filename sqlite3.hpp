@@ -147,30 +147,6 @@ private:
 	statement& operator=(const statement&);
 };
 
-bool exec(database& database, const char* sql, std::size_t size, std::function<bool(std::size_t, const char* const*, const char* const*)> functor);
-bool exec(database& database, const char* sql, std::function<bool(std::size_t, const char* const*, const char* const*)> functor);
-bool exec(database& database, const std::string& sql, std::function<bool(std::size_t, const char* const*, const char* const*)> functor);
-
-namespace detail {
-
-template <std::size_t NumArgs, std::size_t Index, class... Args> struct column_t {
-	static void invoke(std::tuple<Args...>& dest, statement& statement, std::size_t num_cols) {
-		if (Index < num_cols) {
-			typedef std::remove_reference<decltype(std::get < Index >(dest))>::type type;
-			std::get < Index >(dest) = column<type>(statement, Index);
-			column_t<NumArgs, Index + 1, Args...>::invoke(dest, statement, num_cols);
-		}
-	}
-};
-
-template <std::size_t NumArgs, class... Args> struct column_t<NumArgs, NumArgs, Args...> {
-	static void invoke(std::tuple<Args...>& dest, statement& statement, std::size_t num_cols) {
-	}
-};
-
-}
-
-
 namespace detail {
 
 enum tag {
@@ -231,6 +207,21 @@ struct param_info {
 	void const* const ptr;
 	const tag tag;
 	const std::type_info& info;
+};
+
+template <std::size_t NumArgs, std::size_t Index, class... Args> struct column_t {
+	static void invoke(std::tuple<Args...>& dest, statement& statement, std::size_t num_cols) {
+		if (Index < num_cols) {
+			typedef std::remove_reference<decltype(std::get < Index >(dest))>::type type;
+			std::get < Index >(dest) = column<type>(statement, Index);
+			column_t<NumArgs, Index + 1, Args...>::invoke(dest, statement, num_cols);
+		}
+	}
+};
+
+template <std::size_t NumArgs, class... Args> struct column_t<NumArgs, NumArgs, Args...> {
+	static void invoke(std::tuple<Args...>& dest, statement& statement, std::size_t num_cols) {
+	}
 };
 
 template <class... Args> struct bind_t;
@@ -294,6 +285,38 @@ inline void exec2(
 		&detail::param_info(params)...
 		);
 }
+
+
+
+template <class F, class... Args> struct unpack_t {
+	template<std::size_t...>
+	struct sequence { };
+
+	template<int N, std::size_t... S>
+	struct genseq : genseq<N - 1, N - 1, S...> { 
+	};
+
+	template<std::size_t... S>
+	struct genseq<0, S...> {
+		typedef sequence<S...> type;
+	};
+
+	unpack_t(const std::tuple<Args...>& tuple, const F& functor)
+		: tuple(tuple)
+		, functor(functor) {
+	}
+
+	template <std::size_t... S> void _unpack(sequence<S...>) {
+		functor(std::get<S>(tuple)...);
+	}
+
+	void operator()() {
+		_unpack(genseq<sizeof...(Args)>::type());
+	}
+
+	const std::tuple<Args...>& tuple;
+	const F& functor;
+};
 
 }
 
@@ -389,6 +412,51 @@ inline std::vector<std::tuple<Results...> > vexec(
 		);
 
 	return result;
+}
+
+template <class... Results, class... Params, class F>
+inline void fexec(
+	database& database,
+	const char* sql,
+	F functor,
+	const Params&... params
+	) {
+	auto callback = [&](statement& statement, std::size_t count) {
+		std::tuple<Results...> result;
+		detail::column_t<sizeof...(Results), 0, Results...>::invoke(result, statement, count);
+		detail::unpack_t<F, Results...> unpack(result, functor);
+		unpack();
+	};
+
+	detail::exec2<decltype(callback), Params...>(
+		database,
+		sql,
+		std::strlen(sql),
+		callback,
+		params...
+		);
+}
+
+template <class... Results, class... Params, class F>
+inline void fexec(
+	database& database,
+	const std::string& sql,
+	F functor,
+	const Params&... params
+	) {
+	auto callback = [&](statement& statement, std::size_t count) {
+		std::tuple<Results...> result;
+		detail::column_t<sizeof...(Results), 0, Results...>::invoke(result, statement, count);
+		detail::unpack(result, functor);
+	};
+
+	detail::exec2<decltype(callback), Params...>(
+		database,
+		sql,
+		sql.size(),
+		callback,
+		params...
+		);
 }
 
 class sqlite_error : public std::runtime_error {
