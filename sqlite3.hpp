@@ -153,72 +153,20 @@ bool exec(database& database, const std::string& sql, std::function<bool(std::si
 
 namespace detail {
 
-template <std::size_t NumArgs, std::size_t Index, class... Args> struct assign_t {
+template <std::size_t NumArgs, std::size_t Index, class... Args> struct column_t {
 	static void invoke(std::tuple<Args...>& dest, statement& statement, std::size_t num_cols) {
 		if (Index < num_cols) {
 			typedef std::remove_reference<decltype(std::get < Index >(dest))>::type type;
 			std::get < Index >(dest) = column<type>(statement, Index);
-			assign_t<NumArgs, Index + 1, Args...>::invoke(dest, statement, num_cols);
+			column_t<NumArgs, Index + 1, Args...>::invoke(dest, statement, num_cols);
 		}
 	}
 };
 
-template <std::size_t NumArgs, class... Args> struct assign_t<NumArgs, NumArgs, Args...> {
+template <std::size_t NumArgs, class... Args> struct column_t<NumArgs, NumArgs, Args...> {
 	static void invoke(std::tuple<Args...>& dest, statement& statement, std::size_t num_cols) {
 	}
 };
-
-template <class F> inline void exec(database& database, const char* sql, std::size_t size, F functor) {
-	if (database) {
-		if (sql == nullptr && size != 0) {
-			throw std::invalid_argument("sql");
-		}
-
-		const char* itr = sql;
-		const char* end = sql + size;
-
-		while (itr < end) {
-			statement statement = prepare(database, itr, end - itr, itr);
-			auto state = done;
-			do {
-				state = step(statement);
-				auto count = data_count(statement);
-				if (count != 0) {
-					functor(statement, count);
-				}
-			} while (state != done);
-		}
-	}
-	else {
-		throw std::invalid_argument("database");
-	}
-}
-
-template <class... Args> inline std::tuple<Args...> exec(database& database, const char* sql, std::size_t size) {
-	std::tuple<Args...> result;
-	detail::exec(database, sql, size, [&](statement& statement, std::size_t count) {
-		detail::assign_t<sizeof...(Args), 0, Args...>::invoke(result, statement, count);
-	});
-
-	return result;
-}
-
-template <class... Args, class F> inline void fexec(database& database, const char* sql, std::size_t size, F functor) {
-	detail::exec(database, sql, size, [&](statement& statement, std::size_t count) {
-		std::tuple<Args...> result;
-		detail::assign_t<sizeof...(Args), 0, Args...>::invoke(result, statement, count);
-		functor(result);
-	});
-}
-
-template <class... Args> inline std::vector<std::tuple<Args...> > vexec(database& database, const char* sql, std::size_t size) {
-	std::vector<std::tuple<Args...> > result;
-	detail::exec(database, sql, size, [&](statement& statement, std::size_t count) {
-		result.emplace_back();
-		detail::assign_t<sizeof...(Args), 0, Args...>::invoke(result.back(), statement, count);
-	});
-	return result;
-}
 
 }
 
@@ -303,38 +251,141 @@ template <> struct bind_t<> {
 	}
 };
 
-void exec(
+void exec1(
 	database& database, 
 	const char* sql, 
 	std::size_t sql_size, 
-	const std::function<void(statement&, std::size_t)>& column_callback,
+	const std::function<void(statement&)>& column_callback,
 	const std::function<void(statement&, std::size_t, const param_info&)>& bind_callback,
 	std::size_t num_params,
 	...
 	);
 
-}
-
-template <class... Results, class... Params> 
-inline std::tuple<Results...> exec(database& database, const char* sql, const Params&... params) {
-	std::tuple<Results...> result;
-
-	auto column_callback = [&](statement& statement, std::size_t count) {
-		detail::assign_t<sizeof...(Results), 0, Results...>::invoke(result, statement, count);
+template <class F, class... Params>
+inline void exec2(
+	database& database, 
+	const char* sql, 
+	std::size_t sql_size, 
+	const F& functor,
+	const Params&... params
+	) {
+	auto column_callback = [&](statement& statement) {
+		auto state = done;
+		do {
+			state = step(statement);
+			auto count = data_count(statement);
+			if (count != 0) {
+				functor(statement, count);
+			}
+		} while (state != done);
 	};
 
 	auto bind_callback = [&](statement& statement, std::size_t index, const detail::param_info& param) {
 		detail::bind_t<Params...>::invoke(statement, index, param.ptr, param.info);
 	};
 
-	detail::exec(
-		database, 
+	detail::exec1(
+		database,
 		sql,
-		std::strlen(sql),
+		sql_size,
 		column_callback,
 		bind_callback,
 		sizeof...(params),
 		&detail::param_info(params)...
+		);
+}
+
+}
+
+template <class... Results, class... Params> 
+inline std::tuple<Results...> exec(
+	database& database, 
+	const char* sql, 
+	const Params&... params
+	) {
+	std::tuple<Results...> result;
+
+	auto callback = [&](statement& statement, std::size_t count) {
+		detail::column_t<sizeof...(Results), 0, Results...>::invoke(result, statement, count);
+	};
+
+	detail::exec2<decltype(callback), Params...>(
+		database,
+		sql,
+		std::strlen(sql),
+		callback,
+		params...
+		);
+
+	return result;
+}
+
+template <class... Results, class... Params>
+inline std::tuple<Results...> exec(
+	database& database,
+	const std::string& sql,
+	const Params&... params
+	) {
+	std::tuple<Results...> result;
+
+	auto callback = [&](statement& statement, std::size_t count) {
+		detail::column_t<sizeof...(Results), 0, Results...>::invoke(result, statement, count);
+	};
+
+	detail::exec2<decltype(callback), Params...>(
+		database,
+		sql,
+		sql.size(),
+		callback,
+		params...
+		);
+
+	return result;
+}
+
+template <class... Results, class... Params>
+inline std::vector<std::tuple<Results...> > vexec(
+	database& database,
+	const char* sql,
+	const Params&... params
+	) {
+	std::vector<std::tuple<Results...> > result;
+
+	auto callback = [&](statement& statement, std::size_t count) {
+		result.emplace_back();
+		detail::column_t<sizeof...(Results), 0, Results...>::invoke(result.back(), statement, count);
+	};
+
+	detail::exec2<decltype(callback), Params...>(
+		database,
+		sql,
+		std::strlen(sql),
+		callback,
+		params...
+		);
+
+	return result;
+}
+
+template <class... Results, class... Params>
+inline std::vector<std::tuple<Results...> > vexec(
+	database& database,
+	const std::string& sql,
+	const Params&... params
+	) {
+	std::vector<std::tuple<Results...> > result;
+
+	auto callback = [&](statement& statement, std::size_t count) {
+		result.emplace_back();
+		detail::column_t<sizeof...(Results), 0, Results...>::invoke(result.back(), statement, count);
+	};
+
+	detail::exec2<decltype(callback), Params...>(
+		database,
+		sql,
+		sql.size(),
+		callback,
+		params...
 		);
 
 	return result;

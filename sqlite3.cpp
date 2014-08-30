@@ -735,82 +735,6 @@ statement::operator bool() const {
 	return _impl != nullptr;
 }
 
-bool exec(database& database, const char* sql, std::size_t size, std::function<bool(std::size_t, const char* const*, const char* const*)> functor) {
-	if (database) {
-		if (sql == nullptr && size != 0) {
-			throw std::invalid_argument("sql");
-		}
-
-		struct closure_t {
-			closure_t(decltype(functor)& functor)
-				: functor(functor) {
-			}
-
-			static int invoke(void* _self, int num, char** data, char** cols) {
-				auto self = reinterpret_cast<closure_t*>(_self);
-				try {
-					return int(self->functor(num, data, cols));
-				}
-				catch (...) {
-					self->exception = std::current_exception();
-					return 1;
-				}
-			}
-
-			decltype(functor)& functor;
-			std::exception_ptr exception;
-		};
-
-		closure_t closure(functor);
-		auto lsql = detail::local_string(sql, size);
-		char* errmsg = nullptr;
-		int result = SQLITE_OK;
-		if (functor) {
-			result = sqlite3_exec(impl(database), lsql.c_str(), closure_t::invoke, &closure, &errmsg);
-		}
-		else {
-			result = sqlite3_exec(impl(database), lsql.c_str(), nullptr, nullptr, &errmsg);
-		}
-
-		if (closure.exception) {
-			sqlite3_free(errmsg);
-			std::rethrow_exception(closure.exception);
-		}
-		else if (result == SQLITE_ABORT) {
-			return true;
-		}
-		else if (result != SQLITE_OK) {
-			if (errmsg) {
-				try {
-					detail::throw_exception(SQLITE_ERROR, errmsg);
-				}
-				catch (...) {
-					sqlite3_free(errmsg);
-					throw;
-				}
-			}
-			else {
-				throw_exception(database);
-			}
-		}
-		else {
-			return false;
-		}
-	}
-	else {
-		throw std::invalid_argument("database");
-	}
-	return false;
-}
-
-bool exec(database& database, const char* sql, std::function<bool(std::size_t, const char* const*, const char* const*)> functor) {
-	return exec(database, sql, std::strlen(sql), functor);
-}
-
-bool exec(database& database, const std::string& sql, std::function<bool(std::size_t, const char* const*, const char* const*)> functor) {
-	return exec(database, sql.c_str(), sql.size(), functor);
-}
-
 namespace detail {
 
 inline void bind(
@@ -842,11 +766,11 @@ inline void bind(
 	}
 }
 
-void exec(
+void exec1(
 	database& database,
 	const char* sql,
 	std::size_t sql_size,
-	const std::function<void(statement&, std::size_t)>& column_callback,
+	const std::function<void(statement&)>& column_callback,
 	const std::function<void(statement&, std::size_t, const param_info&)>& bind_callback,
 	std::size_t num_params,
 	...
@@ -868,14 +792,7 @@ void exec(
 						++param_num;
 					}
 
-					auto state = done;
-					do {
-						state = step(statement);
-						auto count = data_count(statement);
-						if (count != 0) {
-							column_callback(statement, count);
-						}
-					} while (state != done);
+					column_callback(statement);
 				}
 			}
 			catch (...) {
