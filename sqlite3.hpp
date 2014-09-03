@@ -362,11 +362,26 @@ template <> struct exec_t < void > {
 		const Params&... params
 		) {
 
-		exec<>(
+		detail::exec<>(
 			database,
 			sql,
 			sql + std::strlen(sql),
 			[]() { },
+			params...
+			);
+	}
+
+	template <class... Params> static void invoke(
+		database& database,
+		const string& sql,
+		const Params&... params
+		) {
+
+		detail::exec<>(
+			database,
+			sql.data(),
+			sql.data() + sql.size(),
+			[]() {},
 			params...
 			);
 	}
@@ -380,10 +395,30 @@ template <class T> struct exec_t < T > {
 		) {
 		T result;
 
-		exec<T>(
+		detail::exec<T>(
 			database, 
 			sql,
 			sql + std::strlen(sql),
+			[&](const T& result2) {
+				result = result2;
+			},
+			params...
+			);
+
+		return result;
+	}
+
+	template <class... Params> static T invoke(
+		database& database,
+		const string& sql,
+		const Params&... params
+		) {
+		T result;
+
+		detail::exec<T>(
+			database,
+			sql.data(),
+			sql.data() + sql.size(),
 			[&](const T& result2) {
 				result = result2;
 			},

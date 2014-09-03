@@ -136,6 +136,15 @@ TEST_F(sqlt3cpp_test, detail_is_bindable) {
 	EXPECT_FALSE((sqlt3::detail::are_supported<dummy_t, int>::value));
 }
 
+TEST_F(sqlt3cpp_test, column_std_string_nullptr_bug) {
+	auto value = sqlt3::exec<std::string>(
+		database,
+		"SELECT value FROM \"table\" WHERE key = ?;",
+		"null"
+		);
+	EXPECT_EQ("", value);
+}
+
 int main(int argc, char **argv) {
 	testing::InitGoogleTest(&argc, argv);
 	auto result = RUN_ALL_TESTS();

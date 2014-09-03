@@ -643,7 +643,12 @@ const char* column_string(statement& statement, size_t index) {
 		if (index <  static_cast<size_t>(count)) {
 			auto _index = static_cast<int>(index);
 			auto result = sqlite3_column_text(impl(statement), _index);
-			return reinterpret_cast<const char*>(result);
+			if (result) {
+				return reinterpret_cast<const char*>(result);
+			}
+			else {
+				return "";
+			}
 		}
 		else {
 			throw std::invalid_argument("index");
