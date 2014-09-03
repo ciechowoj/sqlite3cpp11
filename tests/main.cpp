@@ -19,7 +19,7 @@ struct sqlt3cpp_test : public ::testing::Test {
 	static const long long area = 510072675965685;
 };
 
-TEST_F(sqlt3cpp_test, open) {
+/*TEST_F(sqlt3cpp_test, open) {
 	std::remove("dummy.db");
 	database = sqlt3::open("dummy.db");
 	EXPECT_TRUE(database);
@@ -40,29 +40,10 @@ TEST_F(sqlt3cpp_test, exec_should_execute_statement) {
 		return false;
 	};
 
-	sqlt3::fexec<std::string, int>(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor);
+	sqlt3::execf<std::string>(database, "SELECT value FROM \"table\" WHERE key = 'twin' ORDER BY value;", functor);
 	ASSERT_EQ(2, values.size());
-	EXPECT_TRUE(std::to_string(1) == values[0] || std::to_string(2) == values[0]);
-	EXPECT_TRUE(std::to_string(1) == values[1] || std::to_string(2) == values[1]);
-}
-
-TEST_F(sqlt3cpp_test, exec_should_execute_statement_and_abort) {
-	/*std::vector<std::size_t> num_cols_vec;
-	std::vector<std::string> values_vec;
-	std::vector<std::string> names_vec;
-
-	auto functor = [&](std::size_t num_cols, const char* const* values, const char* const* names) -> bool {
-		num_cols_vec.push_back(num_cols);
-		values_vec.push_back(values[0]);
-		names_vec.push_back(names[0]);
-		return true;
-	};
-
-	ASSERT_EQ(true, sqlt3::exec(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor));
-	ASSERT_EQ(1, num_cols_vec.size());
-	EXPECT_EQ(1, num_cols_vec[0]);
-	EXPECT_TRUE(std::to_string(1) == values_vec[0] || std::to_string(2) == values_vec[0]);
-	EXPECT_EQ("value", names_vec[0]);*/
+	EXPECT_TRUE(std::to_string(1) == values[0]);
+	EXPECT_TRUE(std::to_string(2) == values[1]);
 }
 
 TEST_F(sqlt3cpp_test, exec_should_throw_exception) {
@@ -75,20 +56,20 @@ TEST_F(sqlt3cpp_test, exec_should_throw_exception) {
 		return true;
 	};
 
-	ASSERT_THROW(sqlt3::fexec(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor), std::string);
+	ASSERT_THROW(sqlt3::execf(database, "SELECT value FROM \"table\" WHERE key = 'twin';", functor), std::string);
 }
 
 TEST_F(sqlt3cpp_test, tuple_exec_should_execute_statement) {
-	/*auto tuple = sqlt3::exec<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" WHERE first = 1;");
+	auto tuple = sqlt3::exect<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" WHERE first = 1;");
 
 	EXPECT_EQ(1, std::get<0>(tuple));
 	EXPECT_EQ("one", std::get<1>(tuple));
 	EXPECT_GT(0.0001, std::abs(11.11 - std::get<2>(tuple)));
-	EXPECT_EQ("first", std::get<3>(tuple));*/
+	EXPECT_EQ("first", std::get<3>(tuple));
 }
 
 TEST_F(sqlt3cpp_test, vexec_should_execute_statement) {
-	/*auto vector = sqlt3::vexec<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" ORDER BY first;");
+	auto vector = sqlt3::execv<int, std::string, double, std::string>(database, "SELECT first, second, third, fourth FROM \"numbers\" ORDER BY first;");
 
 	ASSERT_EQ(10, vector.size());
 
@@ -105,11 +86,11 @@ TEST_F(sqlt3cpp_test, vexec_should_execute_statement) {
 	EXPECT_EQ(9, std::get<0>(vector[9]));
 	EXPECT_EQ("nine", std::get<1>(vector[9]));
 	EXPECT_GT(0.0001, std::abs(99.99 - std::get<2>(vector[9])));
-	EXPECT_EQ("ninth", std::get<3>(vector[9]));*/
+	EXPECT_EQ("ninth", std::get<3>(vector[9]));
 }
 
 TEST_F(sqlt3cpp_test, tuple_exec_should_execute_statement_with_binding) {
-	/*auto tuple = sqlt3::exec<int, std::string, double, std::string>(
+	auto tuple = sqlt3::exect<int, std::string, double, std::string>(
 		database, 
 		"SELECT first, second, third, fourth FROM \"numbers\" WHERE first = ?;",
 		1ull);
@@ -117,16 +98,38 @@ TEST_F(sqlt3cpp_test, tuple_exec_should_execute_statement_with_binding) {
 	EXPECT_EQ(1, std::get<0>(tuple));
 	EXPECT_EQ("one", std::get<1>(tuple));
 	EXPECT_GT(0.0001, std::abs(11.11 - std::get<2>(tuple)));
-	EXPECT_EQ("first", std::get<3>(tuple));*/
+	EXPECT_EQ("first", std::get<3>(tuple));
+}*/
+
+TEST_F(sqlt3cpp_test, zero_value_exec) {
+	sqlt3::exec<void>(
+		database,
+		"SELECT first FROM \"numbers\" WHERE fourth = ?;",
+		""
+		);
 }
+
+
+TEST_F(sqlt3cpp_test, single_value_exec) {
+	auto value = sqlt3::exec<int>(
+		database,
+		"SELECT first FROM \"numbers\" WHERE fourth = ?;",
+		"first"
+		);
+
+	EXPECT_EQ(1, value);
+}
+
+
+
+
+
 
 TEST_F(sqlt3cpp_test, detail_is_bindable) {
 	struct dummy_t { };
 	EXPECT_TRUE((sqlt3::detail::are_supported<int, int>::value));
 	EXPECT_FALSE((sqlt3::detail::are_supported<dummy_t, int>::value));
 }
-
-
 
 int main(int argc, char **argv) {
 	testing::InitGoogleTest(&argc, argv);

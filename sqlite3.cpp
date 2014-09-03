@@ -687,8 +687,6 @@ size_t data_count(statement& statement) {
 	}
 }
 
-
-
 namespace detail {
 
 inline void bind(
@@ -715,7 +713,7 @@ inline void bind(
 	case tag_float: sqlt3::bind(statement, index, *static_cast<const float*>(param_info.ptr)); break;
 	case tag_double: sqlt3::bind(statement, index, *static_cast<const double*>(param_info.ptr)); break;
 	case tag_string: sqlt3::bind(statement, index, *static_cast<const std::string*>(param_info.ptr)); break;
-	case tag_cstring: sqlt3::bind(statement, index, *static_cast<const char* const*>(param_info.ptr)); break;
+	case tag_cstring: sqlt3::bind(statement, index, static_cast<const char*>(param_info.ptr)); break;
 	}
 }
 
