@@ -328,6 +328,10 @@ inline void exec(
 
 template <class... List> struct are_supported;
 
+template <class... List> struct are_supported < std::tuple<List...> > {
+	static const bool value = are_supported<List...>::value;
+};
+
 template <class Head, class... Tail>
 struct are_supported < Head, Tail... > {
 	static const bool value = type_tag<Head>::value != tag_unsupported && are_supported<Tail...>::value;
@@ -352,7 +356,6 @@ struct args_matches {
 template <class... Results> struct exec_t { };
 
 template <> struct exec_t < void > {
-
 	template <class... Params> static void invoke(
 		database& database,
 		const char* sql,
@@ -366,9 +369,7 @@ template <> struct exec_t < void > {
 			[]() { },
 			params...
 			);
-
 	}
-
 };
 
 template <class T> struct exec_t < T > {
@@ -393,7 +394,27 @@ template <class T> struct exec_t < T > {
 	}
 };
 
+template <class... List> struct exec_t < std::tuple<List...> > {
+	template <class... Params> static std::tuple<List...> invoke(
+		database& database,
+		const char* sql,
+		const Params&... params
+		) {
+		std::tuple<List...> results;
 
+		exec<List...>(
+			database,
+			sql,
+			sql + std::strlen(sql),
+			[&](const List&... results2) {
+				results = std::tuple<List...>(results2...);
+			},
+			params...
+			);
+
+		return results;
+	}
+};
 
 }
 
@@ -437,103 +458,25 @@ inline void execf(
 		);
 }
 
-
-
-
-
-
-template <class... Results, class... Params>
-inline std::tuple<Results...> exect(
+template <class Result, class... Params>
+inline Result exec(
 	database& database,
 	const char* sql,
 	const Params&... params) {
-	static_assert(detail::are_supported<Results...>::value, "Types of result (Results) must by fundamental types, std::string or const char*.");
-	static_assert(detail::are_supported<Params...>::value, "Types of parameters (Params) must by fundamental types, std::string or const char*.");
-	
-	std::tuple<Results...> result;
-
-	execf<Results...>(
-		database,
-		sql,
-		[&](const Results&... results) {
-			result = std::tuple<Results...>(results...);
-		},
-		params...
-		);
-
-	return result;
-}
-
-template <class... Results, class... Params>
-inline std::tuple<Results...> exect(
-	database& database,
-	const string& sql,
-	const Params&... params) {
-	static_assert(detail::are_supported<Results...>::value, "Types of result (Results) must by fundamental types, std::string or const char*.");
+	static_assert(detail::are_supported<Result>::value, "Type of result must by fundamental type, std::string or const char*.");
 	static_assert(detail::are_supported<Params...>::value, "Types of parameters (Params) must by fundamental types, std::string or const char*.");
 
-	std::tuple<Results...> result;
-
-	execf<Results...>(
+	return detail::exec_t<Result>::invoke<Params...>(
 		database,
 		sql,
-		[&](const Results&... results) {
-		result = std::tuple<Results...>(results...);
-	},
 		params...
 		);
-
-	return result;
-}
-
-template <class... Results, class... Params>
-inline std::vector< std::tuple<Results...> > execv(
-	database& database,
-	const char* sql,
-	const Params&... params) {
-	static_assert(detail::are_supported<Results...>::value, "Types of result (Results) must by fundamental types, std::string or const char*.");
-	static_assert(detail::are_supported<Params...>::value, "Types of parameters (Params) must by fundamental types, std::string or const char*.");
-
-	std::vector< std::tuple<Results...> > result;
-
-	execf<Results...>(
-		database,
-		sql,
-		[&](const Results&... results) {
-			result.push_back(std::tuple<Results...>(results...));
-		},
-		params...
-		);
-
-	return result;
-}
-
-template <class... Results, class... Params>
-inline std::vector< std::tuple<Results...> > execv(
-	database& database,
-	const string& sql,
-	const Params&... params) {
-	static_assert(detail::are_supported<Results...>::value, "Types of result (Results) must by fundamental types, std::string or const char*.");
-	static_assert(detail::are_supported<Params...>::value, "Types of parameters (Params) must by fundamental types, std::string or const char*.");
-
-	std::vector< std::tuple<Results...> > result;
-
-	execf<Results...>(
-		database,
-		sql,
-		[&](const Results&... results) {
-			result.push_back(std::tuple<Results...>(results...));
-		},
-		params...
-		);
-
-	return result;
 }
 
 template <class Result, class... Params>
 inline Result exec(
 	database& database,
-	const char* sql,
+	const string sql,
 	const Params&... params) {
 	static_assert(detail::are_supported<Result>::value, "Type of result must by fundamental type, std::string or const char*.");
 	static_assert(detail::are_supported<Params...>::value, "Types of parameters (Params) must by fundamental types, std::string or const char*.");

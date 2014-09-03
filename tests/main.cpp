@@ -101,14 +101,13 @@ TEST_F(sqlt3cpp_test, tuple_exec_should_execute_statement_with_binding) {
 	EXPECT_EQ("first", std::get<3>(tuple));
 }*/
 
-TEST_F(sqlt3cpp_test, zero_value_exec) {
+TEST_F(sqlt3cpp_test, void_value_exec) {
 	sqlt3::exec<void>(
 		database,
 		"SELECT first FROM \"numbers\" WHERE fourth = ?;",
 		""
 		);
 }
-
 
 TEST_F(sqlt3cpp_test, single_value_exec) {
 	auto value = sqlt3::exec<int>(
@@ -120,10 +119,16 @@ TEST_F(sqlt3cpp_test, single_value_exec) {
 	EXPECT_EQ(1, value);
 }
 
+TEST_F(sqlt3cpp_test, tuple_value_exec) {
+	auto value = sqlt3::exec< std::tuple<int, std::string> >(
+		database,
+		"SELECT first, second FROM \"numbers\" WHERE fourth = ?;",
+		"first"
+		);
 
-
-
-
+	EXPECT_EQ(1, std::get<0>(value));
+	EXPECT_EQ("one", std::get<1>(value));
+}
 
 TEST_F(sqlt3cpp_test, detail_is_bindable) {
 	struct dummy_t { };
