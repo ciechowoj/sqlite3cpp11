@@ -153,7 +153,10 @@ database::database(database&& that)
 }
 
 database::~database() {
-	close(*this);
+	try {
+		close(*this);
+	}
+	catch (...) { }
 }
 
 database& database::operator=(database&& that) {
@@ -177,7 +180,10 @@ statement::statement(statement&& that)
 }
 
 statement::~statement() {
-	finalize(*this);
+	try {
+		finalize(*this);
+	}
+	catch (...) { }
 }
 
 statement& statement::operator=(statement&& that) {

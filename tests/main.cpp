@@ -156,6 +156,21 @@ TEST_F(sqlt3cpp_test, column_std_string_nullptr_bug) {
 	EXPECT_EQ("", value);
 }
 
+TEST_F(sqlt3cpp_test, exception_thrown_in_destructor_from_finalize_during_handling_of_another_exception) {
+	const char* tail = nullptr;
+	EXPECT_THROW(
+		auto statement = sqlt3::prepare(
+			database,
+			"INSERT INTO numbers VALUES(0, 'zero', 0.0, 'null');",
+			tail
+			);
+
+		sqlt3::step(statement);
+		,
+		sqlt3::constraint_unique_error
+		);
+}
+
 int main(int argc, char **argv) {
 	testing::InitGoogleTest(&argc, argv);
 	auto result = RUN_ALL_TESTS();
