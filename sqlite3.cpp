@@ -203,6 +203,11 @@ database open(const char* filename, unsigned flags) {
 		throw_exception(database);
 	}
 
+	sqlt3::exec<void>(
+		database,
+		"PRAGMA foreign_keys = ON;"
+		);
+
 	return database;
 }
 
@@ -740,14 +745,16 @@ void exec_base(
 				const char* end = sql_end;
 				while (itr < end) {
 					statement statement = prepare(database, itr, end, itr);
-					std::size_t bind_count = bind_parameter_count(statement);
-					for (std::size_t i = 0; i < bind_count && param_num < num_params; ++i) {
-						auto param_info = va_arg(_va_list, detail::param_info*);
-						detail::bind(statement, i + 1, *param_info);
-						++param_num;
-					}
+					if (statement) {
+						std::size_t bind_count = bind_parameter_count(statement);
+						for (std::size_t i = 0; i < bind_count && param_num < num_params; ++i) {
+							auto param_info = va_arg(_va_list, detail::param_info*);
+							detail::bind(statement, i + 1, *param_info);
+							++param_num;
+						}
 
-					callback(statement);
+						callback(statement);
+					}
 				}
 			}
 			catch (...) {

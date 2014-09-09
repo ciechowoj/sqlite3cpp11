@@ -130,6 +130,17 @@ TEST_F(sqlt3cpp_test, tuple_value_exec) {
 	EXPECT_EQ("one", std::get<1>(value));
 }
 
+TEST_F(sqlt3cpp_test, vector_single_exec) {
+	auto value = sqlt3::exec< std::vector<int> >(
+		database,
+		"SELECT first FROM \"numbers\" WHERE fourth = ?;",
+		"first"
+		);
+
+	ASSERT_EQ(1, value.size());
+	EXPECT_EQ(1, value[0]);
+}
+
 TEST_F(sqlt3cpp_test, detail_is_bindable) {
 	struct dummy_t { };
 	EXPECT_TRUE((sqlt3::detail::are_supported<int, int>::value));

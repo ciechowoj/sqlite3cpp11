@@ -241,8 +241,8 @@ template <> struct type_tag<int> { static const tag value = tag_int; };
 template <> struct type_tag<unsigned int> { static const tag value = tag_uint; };
 template <> struct type_tag<long> { static const tag value = tag_long; };
 template <> struct type_tag<unsigned long> { static const tag value = tag_ulong; };
-template <> struct type_tag<long long> { static const tag value = tag_long; };
-template <> struct type_tag<unsigned long long> { static const tag value = tag_ulong; };
+template <> struct type_tag<long long> { static const tag value = tag_longlong; };
+template <> struct type_tag<unsigned long long> { static const tag value = tag_ulonglong; };
 template <> struct type_tag<float> { static const tag value = tag_float; };
 template <> struct type_tag<double> { static const tag value = tag_double; };
 template <> struct type_tag<std::string> { static const tag value = tag_string; };
@@ -330,6 +330,10 @@ template <class... List> struct are_supported;
 
 template <class... List> struct are_supported < std::tuple<List...> > {
 	static const bool value = are_supported<List...>::value;
+};
+
+template <class T> struct are_supported < std::vector<T> > {
+	static const bool value = are_supported<T>::value;
 };
 
 template <class Head, class... Tail>
@@ -443,6 +447,28 @@ template <class... List> struct exec_t < std::tuple<List...> > {
 			sql + std::strlen(sql),
 			[&](const List&... results2) {
 				results = std::tuple<List...>(results2...);
+			},
+			params...
+			);
+
+		return results;
+	}
+};
+
+template <class T> struct exec_t < std::vector<T> > {
+	template <class... Params> static std::vector<T> invoke(
+		database& database,
+		const char* sql,
+		const Params&... params
+		) {
+		std::vector<T> results;
+
+		exec<T>(
+			database,
+			sql,
+			sql + std::strlen(sql),
+			[&](const T& result) {
+				results.push_back(result);
 			},
 			params...
 			);
